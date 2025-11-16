@@ -1,10 +1,24 @@
 import { neonConfig } from "@neondatabase/serverless";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@/lib/generated/prisma/client";
-import ws from "ws";
 
-// Sets up WebSocket connections, which enables Neon to use WebSocket communication.
-neonConfig.webSocketConstructor = ws;
+// Only set up WebSocket in Node.js runtime (not in serverless/edge environments)
+// In serverless environments like Vercel, Neon uses HTTP fetch by default
+// WebSocket is only needed for local development or Node.js environments
+if (
+  typeof window === "undefined" &&
+  typeof process !== "undefined" &&
+  process.env.VERCEL !== "1"
+) {
+  try {
+    // Use require for Node.js environments (synchronous)
+    const ws = require("ws");
+    neonConfig.webSocketConstructor = ws.default || ws;
+  } catch (error) {
+    // WebSocket not available, Neon will use HTTP fetch instead
+    // This is fine for serverless environments
+  }
+}
 
 const connectionString = process.env.DATABASE_URL;
 
@@ -35,13 +49,14 @@ const createPrismaClient = () => {
   });
 };
 
-// Singleton pattern for Next.js
+// Singleton pattern for Next.js (works in both dev and production)
 const globalForPrisma = globalThis as unknown as {
   prisma: ReturnType<typeof createPrismaClient> | undefined;
 };
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
-if (process.env.NODE_ENV !== "production") {
+// Cache the Prisma client in both dev and production to avoid creating multiple instances
+if (!globalForPrisma.prisma) {
   globalForPrisma.prisma = prisma;
 }
