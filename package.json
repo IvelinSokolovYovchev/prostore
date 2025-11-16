@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "if [ \"$DATABASE_URL\" ]; then prisma generate; else echo \"Skipping Prisma generate: DATABASE_URL not set\"; fi"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
